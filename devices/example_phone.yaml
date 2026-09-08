@@ -1,0 +1,47 @@
+# Generic ~6.1" slab phone, lying face-up in the nest, home button edge down.
+# All coordinates are deck millimetres from the gantry origin; launcher/pin-pad
+# points are screen-relative fractions (0..1, origin top-left of the screen).
+name: example_phone
+class: phone
+
+body:
+  width_mm: 71.5
+  height_mm: 147.0
+  thickness_mm: 8.9
+
+# Screen corners TL, TR, BR, BL in deck mm (device nest origin at [60, 80]).
+screen_polygon:
+  - [63.0, 84.0]
+  - [128.5, 84.0]
+  - [128.5, 221.0]
+  - [63.0, 221.0]
+
+buttons:
+  power:
+    position: [134.5, 130.0, 10.0]
+    plunger: plunger_0
+  volume_up:
+    position: [134.5, 110.0, 10.0]
+    plunger: plunger_1
+  volume_down:
+    position: [134.5, 95.0, 10.0]
+    plunger: plunger_1
+
+launcher:
+  settings: {x: 0.25, y: 0.40}
+  camera: {x: 0.75, y: 0.40}
+  # Lock-screen PIN pad, standard 3x4 grid.
+  pin_1: {x: 0.25, y: 0.45}
+  pin_2: {x: 0.50, y: 0.45}
+  pin_3: {x: 0.75, y: 0.45}
+  pin_4: {x: 0.25, y: 0.58}
+  pin_5: {x: 0.50, y: 0.58}
+  pin_6: {x: 0.75, y: 0.58}
+  pin_7: {x: 0.25, y: 0.71}
+  pin_8: {x: 0.50, y: 0.71}
+  pin_9: {x: 0.75, y: 0.71}
+  pin_0: {x: 0.50, y: 0.84}
+
+quirks:
+  key_settle_s: 0.15        # pause between PIN digit taps
+  screen_on_settle_s: 1.5   # display wake latency after power press

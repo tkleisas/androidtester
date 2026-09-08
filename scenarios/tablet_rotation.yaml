@@ -1,0 +1,22 @@
+# Landscape/portrait UI checks across orientations on a tablet.
+# Orientation changes are physical (the nest rotates, M2); this scenario
+# verifies the UI reflows correctly in each orientation it is run against.
+name: tablet_rotation
+device: example_tablet
+
+pre:
+  - home: {}
+
+steps:
+  - button.press: {key: power}
+  - touch.swipe: {from: [50%, 90%], to: [50%, 20%]}
+  - touch.enter_pin: {pin_env: DEVICE_PIN_1}
+  - screen.wait_for: {text: "Home", timeout_s: 10}
+  - touch.tap: {at: [75%, 40%]}               # launcher: gallery icon
+  - screen.wait_for: {text: "Gallery", timeout_s: 8}
+  - screen.assert_text: {text: "Portrait"}    # placeholder: orientation badge in the test app
+  - touch.long_press: {at: [50%, 50%], duration_s: 1.2}
+  - screen.assert_text: {text: "Landscape"}
+
+post:
+  - park: {}

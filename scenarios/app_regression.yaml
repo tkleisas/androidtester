@@ -1,0 +1,21 @@
+# Golden-path tap flow through the Settings app with OCR assertions.
+name: app_regression
+device: example_phone
+
+pre:
+  - home: {}
+
+steps:
+  - button.press: {key: power}
+  - touch.swipe: {from: [50%, 90%], to: [50%, 20%]}
+  - touch.enter_pin: {pin_env: DEVICE_PIN_1}
+  - screen.wait_for: {text: "Home", timeout_s: 10}
+  - touch.tap: {at: [25%, 40%]}               # launcher: settings icon
+  - screen.wait_for: {text: "Settings", timeout_s: 8}
+  - touch.swipe: {from: [50%, 70%], to: [50%, 30%]}
+  - screen.assert_text: {text: "About phone"}
+  - touch.tap: {at: [50%, 88%]}               # "About phone" list entry
+  - screen.wait_for: {text: "Device name", timeout_s: 8}
+
+post:
+  - park: {}

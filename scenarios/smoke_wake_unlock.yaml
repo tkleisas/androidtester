@@ -1,0 +1,17 @@
+# Power on, swipe up, enter the PIN by touch, verify the home screen by OCR.
+# The PIN comes from the environment, never the repo: export DEVICE_PIN_1=....
+name: smoke_wake_unlock
+device: example_phone
+
+pre:
+  - home: {}
+
+steps:
+  - button.press: {key: power}
+  - touch.swipe: {from: [50%, 90%], to: [50%, 20%]}
+  - touch.enter_pin: {pin_env: DEVICE_PIN_1}
+  - screen.wait_for: {text: "Home", timeout_s: 10}
+  - screen.assert_text: {text: "Home"}
+
+post:
+  - park: {}

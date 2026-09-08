@@ -73,15 +73,25 @@ pipeline run before (and without) hardware.
 
 - **M0 — Machine design package**: parametric OpenSCAD parts, Klipper config,
   electronics, BOM (generalized gantry design, published as open hardware).
-- **M1 — Framework**: motion client, scenario engine, vision pipeline, reports.
+- **M1 — Framework** ✅: motion client (Moonraker HTTP + strict `wait_idle`),
+  YAML scenario engine with JSON/JUnit reports, vision pipeline (rectification,
+  pluggable OCR + template fallback), Klipper macro contract, example device
+  profiles and scenarios. Proof:
+  ```
+  .venv/Scripts/python -m pytest                       # 55 tests
+  .venv/Scripts/python -m androidtester.scenario \
+      scenarios/smoke_wake_unlock.yaml --dry-run        # no hardware needed
+  ```
 - **M2 — Device nest + profiles**: adjustable clamps for phones through tablets,
   side-button pressers, first device YAMLs.
 - **M3 — Twin parity**: steropes models the full machine + device DUT.
 
 ## Status
 
-Scaffold. The concept and architecture are set down here; the design package
-and framework land with M0/M1.
+M1 done: the framework (motion client, scenario engine, vision pipeline,
+reports, Klipper macro contract) is implemented and tested — run it with no
+hardware via the proof commands in the roadmap. The machine design package
+(M0) is next.
 
 ## License
 

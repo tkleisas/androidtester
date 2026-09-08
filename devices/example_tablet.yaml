@@ -1,0 +1,43 @@
+# Generic ~10" tablet, lying face-up in the nest in portrait orientation.
+# Same schema as example_phone.yaml; see that file for coordinate conventions.
+name: example_tablet
+class: tablet
+
+body:
+  width_mm: 170.0
+  height_mm: 250.0
+  thickness_mm: 7.5
+
+# Screen corners TL, TR, BR, BL in deck mm (device nest origin at [55, 25]).
+screen_polygon:
+  - [62.0, 34.0]
+  - [218.0, 34.0]
+  - [218.0, 266.0]
+  - [62.0, 266.0]
+
+buttons:
+  power:
+    position: [224.0, 80.0, 9.0]
+    plunger: plunger_0
+  volume_up:
+    position: [224.0, 60.0, 9.0]
+    plunger: plunger_1
+
+launcher:
+  settings: {x: 0.25, y: 0.40}
+  gallery: {x: 0.75, y: 0.40}
+  pin_1: {x: 0.25, y: 0.45}
+  pin_2: {x: 0.50, y: 0.45}
+  pin_3: {x: 0.75, y: 0.45}
+  pin_4: {x: 0.25, y: 0.58}
+  pin_5: {x: 0.50, y: 0.58}
+  pin_6: {x: 0.75, y: 0.58}
+  pin_7: {x: 0.25, y: 0.71}
+  pin_8: {x: 0.50, y: 0.71}
+  pin_9: {x: 0.75, y: 0.71}
+  pin_0: {x: 0.50, y: 0.84}
+
+quirks:
+  key_settle_s: 0.15
+  screen_on_settle_s: 2.0
+  rotation_settle_s: 1.0    # UI reflow latency after an orientation change

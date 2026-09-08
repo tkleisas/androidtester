@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "androidtester"
+version = "0.1.0"
+description = "Physical black-box test framework for Android devices (Klipper gantry + vision)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.31",
+    "pyyaml>=6.0",
+    "numpy>=1.26",
+    "opencv-python>=4.8",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["androidtester"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
