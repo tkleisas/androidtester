@@ -1,9 +1,9 @@
 # AndroidTester
 
-An **open-hardware robot that physically tests Android phones**. A gantry places
-the device on a fixture and executes automated scenarios against it with **real
-touch, real buttons, and real NFC** — the inputs a user (or a certification lab)
-produces, not the inputs a debug bridge injects.
+An **open-hardware robot that physically tests Android phones and tablets**. A
+gantry places the device on a fixture and executes automated scenarios against
+it with **real touch and real buttons** — the inputs a user (or a certification
+lab) produces, not the inputs a debug bridge injects.
 
 Everything is 3D-printable mechanics, commodity open electronics (Raspberry Pi +
 Klipper, the 3D-printer firmware), and a Python framework that turns YAML
@@ -16,15 +16,13 @@ ADB/UI Automator can drive an app, but they can't:
 - inject a **capacitive touch event the touchscreen controller actually felt**
   (edge rejection, glove/wet-finger behavior, screen-protector sensitivity),
 - press the **physical power/volume buttons**,
-- present a **contactless card to the NFC antenna** at a real position and angle
-  (antenna sweet spots vary wildly between phone models),
 - verify behavior with the device in its shipping state.
 
-**Everything is physical.** Input is real fingers, real buttons, real cards;
+**Everything is physical.** Input is a real finger and real button presses;
 verification is the **camera** — OCR and image checks on the screen as a user
 would see it. Fully black-box: works on production builds, no USB debugging, no
 agent on the device. The acceptance rule: *a scenario must pass with the
-phone's USB port unplugged.*
+device's USB port unplugged.*
 
 ## The machine
 
@@ -32,12 +30,13 @@ phone's USB port unplugged.*
 - **Tool-Z elevator** adapts the tools to device thickness and button height.
 - **Finger tool** with a conductive tip taps, swipes, and long-presses the
   touchscreen; small servo plungers in the nest press recessed side buttons.
-- **Card manipulator** picks an emulator card from a dock and presents it to the
-  phone's NFC antenna zone — tap-to-pay, card emulation, accessory pairing.
 - **Cameras** (overhead + toolhead) register the deck and read the screen:
   ArUco homography, perspective rectification, OCR.
 - **Klipper on a Raspberry Pi** drives motion; the Python framework talks to it
   over Moonraker and never issues raw moves below a safety clearance plane.
+
+The toolhead is modular by design — the finger is the first tool, not the only
+one the deck can carry.
 
 ## The framework
 
@@ -53,14 +52,15 @@ steps:
   - screen.wait_for: { text: "Home", timeout_s: 10 }
 ```
 
-- **Device profiles** (`devices/*.yaml`): screen polygon, physical-button map,
-  NFC antenna zone, launcher layout, per-model quirks. New phone = new YAML,
-  not new code.
-- **Phone actions**: `touch.tap/swipe/long_press/enter_pin`, `button.press`,
-  `nfc.present`, `screen.wait_for/assert_text/assert_image`.
-- **Example scenarios**: `smoke_wake_unlock`, `app_regression` (golden-path tap
-  flow with OCR assertions), `nfc_tap_payment` (launch a payment app, amount
-  entry by touch, card presentation, approval screen read back by OCR).
+- **Device profiles** (`devices/*.yaml`): device class (phone/tablet), screen
+  polygon, physical-button map, launcher layout, per-model quirks. New device =
+  new YAML, not new code.
+- **Actions**: `touch.tap/swipe/long_press/enter_pin`, `button.press`,
+  `screen.wait_for/assert_text/assert_image`.
+- **Example scenarios**: `smoke_wake_unlock` (power on, swipe, PIN by touch,
+  home screen by OCR), `app_regression` (golden-path tap flow with OCR
+  assertions), `tablet_rotation` (landscape/portrait UI checks across
+  orientations).
 
 ## Digital twin
 
@@ -74,10 +74,9 @@ pipeline run before (and without) hardware.
 - **M0 — Machine design package**: parametric OpenSCAD parts, Klipper config,
   electronics, BOM (generalized gantry design, published as open hardware).
 - **M1 — Framework**: motion client, scenario engine, vision pipeline, reports.
-- **M2 — Phone nest + device profiles**: clamps, side-button pressers, first
-  device YAMLs.
-- **M3 — NFC**: card manipulator integration, antenna-zone mapping per device.
-- **M4 — Twin parity**: steropes models the full machine + phone DUT.
+- **M2 — Device nest + profiles**: adjustable clamps for phones through tablets,
+  side-button pressers, first device YAMLs.
+- **M3 — Twin parity**: steropes models the full machine + device DUT.
 
 ## Status
 
