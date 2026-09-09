@@ -82,11 +82,14 @@ def test_dry_run_records_macro_sequence(pin, fake_client, tmp_path):
 
 def test_scenario_with_real_client_and_stub_ocr(pin, fake_client, tmp_path):
     """Non-dry run: motion goes to the fake client, vision via stub OCR."""
-    camera = StaticCamera(np.zeros((300, 300, 3), dtype=np.uint8))
+    from androidtester.cameras import SyntheticCamera
+
+    config = HarnessConfig()
+    camera = SyntheticCamera(config, load_profile(DEVICES_DIR / "example_phone.yaml"))
     ocr = StubOCR("Home screen")
     result = run_scenario_file(
         SCENARIOS_DIR / "smoke_wake_unlock.yaml",
-        config=HarnessConfig(),
+        config=config,
         devices_dir=DEVICES_DIR,
         out_dir=tmp_path,
         client=fake_client,
@@ -96,7 +99,77 @@ def test_scenario_with_real_client_and_stub_ocr(pin, fake_client, tmp_path):
     assert result.passed
     assert fake_client.scripts[0] == "HOME_ALL"
     assert fake_client.scripts[-1] == "PARK"
-    assert camera.grabs > 0
+
+
+ALL_TEXT = "Home screen Settings About phone Device name Gallery Portrait Landscape"
+
+
+def test_uncalibrated_camera_keeps_m1_polygon_path(pin, fake_client, tmp_path):
+    """Without camera.calibrate the profile polygon doubles as pixels (M1)."""
+    scenario_path = tmp_path / "no_calib.yaml"
+    scenario_path.write_text(
+        "name: no_calib\ndevice: example_phone\n"
+        "steps: [{screen.assert_text: {text: Home}}]\n",
+        encoding="utf-8",
+    )
+    result = run_scenario_file(
+        scenario_path,
+        config=HarnessConfig(),
+        devices_dir=DEVICES_DIR,
+        out_dir=tmp_path,
+        client=fake_client,
+        camera=StaticCamera(np.zeros((300, 300, 3), dtype=np.uint8)),
+        ocr=StubOCR("Home screen"),
+    )
+    assert result.passed
+    assert result.calibration_rms_mm is None
+
+
+@pytest.mark.parametrize("name", EXAMPLE_SCENARIOS)
+def test_example_scenarios_pass_with_synthetic_camera(name, pin, fake_client, tmp_path):
+    """Full non-dry run: camera.calibrate in pre, vision through the homography."""
+    from androidtester.cameras import SyntheticCamera
+
+    config = HarnessConfig()
+    profile = load_profile(DEVICES_DIR / f"example_{'tablet' if name == 'tablet_rotation' else 'phone'}.yaml")
+    camera = SyntheticCamera(config, profile)
+    result = run_scenario_file(
+        SCENARIOS_DIR / f"{name}.yaml",
+        config=config,
+        devices_dir=DEVICES_DIR,
+        out_dir=tmp_path,
+        client=fake_client,
+        camera=camera,
+        ocr=StubOCR(ALL_TEXT),
+    )
+    assert result.passed, [s.detail for s in result.steps if s.status == "failed"]
+    calibrate_step = next(s for s in result.steps if s.action == "camera.calibrate")
+    assert calibrate_step.phase == "pre" and "RMS" in calibrate_step.detail
+    # the fit quality lands in the JSON report
+    assert result.calibration_rms_mm is not None and result.calibration_rms_mm < 0.5
+    payload = json.loads((result.report_dir / "report.json").read_text(encoding="utf-8"))
+    assert payload["calibration_rms_mm"] == pytest.approx(result.calibration_rms_mm)
+
+
+def test_fraction_targets_map_through_screen_point(fake_client):
+    """[0.5, 0.82] plain-fraction tap lands at the same deck mm as '50%, 82%'."""
+    from androidtester.scenario import _load_scenario, _point
+
+    profile = load_profile(DEVICES_DIR / "example_phone.yaml")
+    assert _point([0.5, 0.82], profile) == profile.screen_point(0.5, 0.82)
+    assert _point(["50%", "82%"], profile) == profile.screen_point(0.5, 0.82)
+    assert _point([150, 90], profile) == (150.0, 90.0)  # numbers > 1 stay deck mm
+    with pytest.raises(ScenarioError, match="mixed coordinate kinds"):
+        _point([0.5, 90], profile)
+    # and the tap macro carries the screen_point coordinates
+    harness = Harness(fake_client, HarnessConfig(dry_run=True), profile)
+    runner = ScenarioRunner(harness)
+    runner.run({
+        "name": "frac", "device": "example_phone",
+        "steps": [{"touch.tap": {"at": [0.5, 0.82]}}],
+    })
+    x, y = profile.screen_point(0.5, 0.82)
+    assert f"FINGER_TAP X={x:g} Y={y:g}" in harness.recorded
 
 
 def test_missing_pin_env_fails_loudly(monkeypatch, fake_client, tmp_path):

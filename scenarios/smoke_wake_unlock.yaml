@@ -5,6 +5,7 @@ device: example_phone
 
 pre:
   - home: {}
+  - camera.calibrate: {rms_below_mm: 0.5}   # ArUco deck registration before touching
 
 steps:
   - button.press: {key: power}

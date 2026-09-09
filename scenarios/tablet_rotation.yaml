@@ -1,11 +1,12 @@
 # Landscape/portrait UI checks across orientations on a tablet.
-# Orientation changes are physical (the nest rotates, M2); this scenario
+# Orientation changes are physical (the nest rotates, M3); this scenario
 # verifies the UI reflows correctly in each orientation it is run against.
 name: tablet_rotation
 device: example_tablet
 
 pre:
   - home: {}
+  - camera.calibrate: {rms_below_mm: 0.5}   # ArUco deck registration before touching
 
 steps:
   - button.press: {key: power}

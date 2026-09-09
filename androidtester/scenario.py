@@ -4,7 +4,7 @@ A scenario names a device profile and a list of single-key action steps:
 
     name: smoke_wake_unlock
     device: example_phone
-    pre:   [{home: {}}]
+    pre:   [{home: {}}, {camera.calibrate: {rms_below_mm: 0.5}}]
     steps:
       - button.press: {key: power}
       - touch.swipe: {from: [50%, 90%], to: [50%, 20%]}
@@ -12,8 +12,10 @@ A scenario names a device profile and a list of single-key action steps:
       - screen.wait_for: {text: "Home", timeout_s: 10}
     post:  [{park: {}}]
 
-Coordinates are deck mm numbers or "NN%" strings (screen-relative fractions).
-The `post` phase always runs — even after a failure — so the machine parks.
+Coordinates are deck mm numbers or screen fractions ("NN%" strings, or plain
+0..1 numbers). The `post` phase always runs — even after a failure — so the
+machine parks. Real runs calibrate the camera in `pre` (ArUco deck markers ->
+px/deck-mm homography); vision steps then rectify through that homography.
 
 CLI: python -m androidtester.scenario scenarios/<file>.yaml [--dry-run] [--out out]
 """
@@ -34,11 +36,12 @@ import cv2
 import numpy as np
 import yaml
 
+from . import vision
+from .calib import DeckCalibration, calibrate_deck
 from .config import HarnessConfig
 from .devices import DeviceProfile, load_profile_by_name
 from .harness import Harness
 from .motion import MotionClient, MoonrakerClient
-from . import vision
 
 
 class ScenarioError(RuntimeError):
@@ -63,6 +66,7 @@ class ScenarioResult:
     steps: list[StepResult] = field(default_factory=list)
     duration_s: float = 0.0
     report_dir: Path | None = None
+    calibration_rms_mm: float | None = None
 
     @property
     def passed(self) -> bool:
@@ -73,6 +77,7 @@ class ScenarioResult:
 KNOWN_ACTIONS = frozenset({
     "home",
     "park",
+    "camera.calibrate",
     "touch.tap",
     "touch.swipe",
     "touch.long_press",
@@ -98,7 +103,12 @@ def _load_scenario(path: Path) -> dict[str, Any]:
 
 
 def _point(value: Any, profile: DeviceProfile) -> tuple[float, float]:
-    """Resolve [x, y] as deck mm numbers or "NN%" screen fractions."""
+    """Resolve [x, y] as deck mm, "NN%" strings, or 0..1 screen fractions.
+
+    Plain numbers are deck millimetres — except when both lie in 0..1, which
+    reads as screen fractions (``at: [0.5, 0.82]``); fractions map to deck mm
+    via `DeviceProfile.screen_point`.
+    """
     if not isinstance(value, (list, tuple)) or len(value) != 2:
         raise ScenarioError(f"expected a coordinate pair [x, y], got {value!r}")
     fractions: list[float] = []
@@ -113,6 +123,9 @@ def _point(value: Any, profile: DeviceProfile) -> tuple[float, float]:
             kinds.add("fraction")
         elif isinstance(item, bool) or not isinstance(item, (int, float)):
             raise ScenarioError(f"bad coordinate {item!r}: use deck mm or 'NN%'")
+        elif 0.0 <= item <= 1.0:
+            fractions.append(float(item))
+            kinds.add("fraction")
         else:
             absolute.append(float(item))
             kinds.add("absolute")
@@ -120,7 +133,7 @@ def _point(value: Any, profile: DeviceProfile) -> tuple[float, float]:
         return profile.screen_point(fractions[0], fractions[1])
     if kinds == {"absolute"}:
         return (absolute[0], absolute[1])
-    raise ScenarioError(f"mixed coordinate kinds in {value!r}: use both mm or both 'NN%'")
+    raise ScenarioError(f"mixed coordinate kinds in {value!r}: use both mm or both fractions")
 
 
 class ScenarioRunner:
@@ -138,6 +151,7 @@ class ScenarioRunner:
         self.camera = camera
         self.ocr = ocr
         self.scenario_dir = scenario_dir or Path.cwd()
+        self.calibration: DeckCalibration | None = None
 
     @property
     def profile(self) -> DeviceProfile:
@@ -164,6 +178,8 @@ class ScenarioRunner:
             except Exception as exc:  # a parking failure must surface, not vanish
                 result.steps.append(StepResult(len(result.steps), "post", "post", "failed", 0.0, str(exc)))
             result.duration_s = time.monotonic() - started
+            if self.calibration is not None:
+                result.calibration_rms_mm = self.calibration.rms_mm
         if out_dir is not None:
             result.report_dir = write_reports(result, out_dir)
         return result
@@ -205,6 +221,7 @@ class ScenarioRunner:
         handler = {
             "home": self._do_home,
             "park": self._do_park,
+            "camera.calibrate": self._do_calibrate,
             "touch.tap": self._do_tap,
             "touch.swipe": self._do_swipe,
             "touch.long_press": self._do_long_press,
@@ -223,6 +240,24 @@ class ScenarioRunner:
     def _do_park(self, params: dict, timeout_s: float | None) -> str:
         self.harness.park()
         return "parked"
+
+    def _do_calibrate(self, params: dict, timeout_s: float | None) -> str:
+        if self.camera is None:
+            if self.harness.dry_run:
+                return "dry-run: not calibrated"
+            raise ScenarioError("camera.calibrate requires a camera (or run with --dry-run)")
+        rms_below = params.get("rms_below_mm")
+        config = self.harness.config
+        self.calibration = calibrate_deck(
+            self.camera.grab(),
+            config.deck_marker_map(),
+            marker_size_mm=config.marker_size_mm,
+            rms_below_mm=float(rms_below) if rms_below is not None else None,
+        )
+        return (
+            f"calibrated: {len(self.calibration.detections)} markers, "
+            f"RMS {self.calibration.rms_mm:.3f} mm"
+        )
 
     def _do_tap(self, params: dict, timeout_s: float | None) -> str:
         x, y = _point(params.get("at"), self.profile)
@@ -282,9 +317,13 @@ class ScenarioRunner:
                 raise _DryRunVision()
             raise ScenarioError("vision step requires a camera (or run with --dry-run)")
         frame = self.camera.grab()
-        # The profile polygon is in deck mm; the camera's deck registration
-        # (ArUco homography -> px) is M2 territory, so for now the camera is
-        # expected to deliver an already deck-registered frame.
+        if self.calibration is not None:
+            # Deck-registered: the profile polygon (deck mm) maps to pixels
+            # through the calibration homography.
+            polygon_px = self.calibration.screen_polygon_px(self.profile.screen_polygon)
+            return vision.rectify_screen(frame, polygon_px)
+        # Uncalibrated fallback (dry-run doubles, preregistered twin frames):
+        # the frame is assumed already registered, polygon doubles as pixels.
         return vision.rectify_screen(frame, self.profile.screen_polygon)
 
     def _check_text(self, text: str) -> None:
@@ -358,6 +397,7 @@ def write_reports(result: ScenarioResult, out_dir: Path) -> Path:
         "dry_run": result.dry_run,
         "passed": result.passed,
         "duration_s": round(result.duration_s, 3),
+        "calibration_rms_mm": result.calibration_rms_mm,
         "steps": [
             {
                 "index": s.index,
@@ -434,6 +474,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     config = HarnessConfig.load(args.config) if args.config else HarnessConfig()
     if args.dry_run:
         config = HarnessConfig.from_dict({**config.__dict__, "dry_run": True})
+    camera = None
+    if config.cameras and not config.dry_run:
+        from . import cameras
+
+        camera = cameras.camera_from_config(config)
 
     try:
         result = run_scenario_file(
@@ -441,6 +486,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             config=config,
             devices_dir=args.devices,
             out_dir=args.out,
+            camera=camera,
         )
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)

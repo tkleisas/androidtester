@@ -44,6 +44,10 @@ class Harness:
     def dry_run(self) -> bool:
         return self._config.dry_run
 
+    @property
+    def config(self) -> HarnessConfig:
+        return self._config
+
     # -- plumbing -----------------------------------------------------------
 
     def _gcode(self, name: str, **params: float | str) -> None:

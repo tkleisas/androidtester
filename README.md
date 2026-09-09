@@ -45,6 +45,8 @@ capture, and JSON/JUnit reports:
 
 ```yaml
 # scenarios/smoke_wake_unlock.yaml (excerpt)
+pre:
+  - camera.calibrate: { rms_below_mm: 0.5 }  # ArUco deck markers -> px/deck-mm
 steps:
   - button.press: { key: power }        # servo plunger on the side button
   - touch.swipe: { from: [50%, 90%], to: [50%, 20%] }
@@ -55,8 +57,8 @@ steps:
 - **Device profiles** (`devices/*.yaml`): device class (phone/tablet), screen
   polygon, physical-button map, launcher layout, per-model quirks. New device =
   new YAML, not new code.
-- **Actions**: `touch.tap/swipe/long_press/enter_pin`, `button.press`,
-  `screen.wait_for/assert_text/assert_image`.
+- **Actions**: `camera.calibrate`, `touch.tap/swipe/long_press/enter_pin`,
+  `button.press`, `screen.wait_for/assert_text/assert_image`.
 - **Example scenarios**: `smoke_wake_unlock` (power on, swipe, PIN by touch,
   home screen by OCR), `app_regression` (golden-path tap flow with OCR
   assertions), `tablet_rotation` (landscape/portrait UI checks across
@@ -82,16 +84,25 @@ pipeline run before (and without) hardware.
   .venv/Scripts/python -m androidtester.scenario \
       scenarios/smoke_wake_unlock.yaml --dry-run        # no hardware needed
   ```
-- **M2 — Device nest + profiles**: adjustable clamps for phones through tablets,
+- **M2 — Camera deck registration** ✅: ArUco markers on the deck, normalized-DLT
+  px↔deck-mm homography with RMS gating, `camera.calibrate` scenario step,
+  OpenCV + synthetic cameras, fraction-coordinate taps. Proof:
+  ```
+  .venv/Scripts/python -m pytest                       # 80 tests
+  .venv/Scripts/python -m androidtester.calib --device example_phone
+      # synthetic deck: per-marker detection + RMS, saves an annotated frame
+  ```
+- **M3 — Device nest + profiles**: adjustable clamps for phones through tablets,
   side-button pressers, first device YAMLs.
-- **M3 — Twin parity**: steropes models the full machine + device DUT.
+- **M4 — Twin parity**: steropes models the full machine + device DUT.
 
 ## Status
 
-M1 done: the framework (motion client, scenario engine, vision pipeline,
-reports, Klipper macro contract) is implemented and tested — run it with no
-hardware via the proof commands in the roadmap. The machine design package
-(M0) is next.
+M1 + M2 done: the framework (motion client, scenario engine, vision pipeline,
+reports, Klipper macro contract) and camera deck registration (ArUco
+homography, synthetic camera, calibration CLI) are implemented and tested —
+run them with no hardware via the proof commands in the roadmap. The machine
+design package (M0) is next.
 
 ## License
 
