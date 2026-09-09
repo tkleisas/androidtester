@@ -12,10 +12,15 @@ cameras:
   # /camera/overhead.png snapshot endpoint is not a VideoCapture source.)
   overhead: http://127.0.0.1:7125/camera/overhead
 
-# Deck markers: the defaults HarnessConfig.deck_marker_map() produces
-# (DICT_4X4_50, ids 1-4, one marker-width in from each corner). The twin
-# mirrors these exactly; they are listed here explicitly so this config
-# documents the shared contract.
+# Deck size: the twin simulates the smaller 300 x 300 mm rig from its own
+# profile, not the 400 x 300 mm hardware deck (config.py defaults), so pin
+# both explicitly here.
+deck_width_mm: 300.0
+deck_height_mm: 300.0
+
+# Deck markers: the 300 x 300 deck's corner defaults (DICT_4X4_50, ids 1-4,
+# one marker-width in from each corner). The twin mirrors these exactly; they
+# are listed here explicitly so this config documents the shared contract.
 deck_markers:
   1: [20.0, 20.0]
   2: [280.0, 20.0]

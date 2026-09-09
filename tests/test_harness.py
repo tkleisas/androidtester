@@ -65,7 +65,7 @@ def test_button_press_unknown_button(fake_client, phone):
 def test_point_outside_deck_rejected(fake_client, phone):
     harness = make_harness(fake_client, phone)
     with pytest.raises(HarnessError, match="outside the deck"):
-        harness.finger_tap(400.0, 10.0)
+        harness.finger_tap(401.0, 10.0)  # default deck is 400 x 300 mm (config.py)
     assert fake_client.scripts == []  # nothing was sent
 
 

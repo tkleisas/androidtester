@@ -24,7 +24,7 @@ class HarnessConfig:
 
     moonraker_url: str = "http://localhost:7125"
     cameras: dict[str, str] = field(default_factory=dict)
-    deck_width_mm: float = 300.0
+    deck_width_mm: float = 400.0
     deck_height_mm: float = 300.0
     travel_z_mm: float = 40.0
     touch_z_mm: float = 5.0

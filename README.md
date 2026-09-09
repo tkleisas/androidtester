@@ -35,8 +35,31 @@ device's USB port unplugged.*
 - **Klipper on a Raspberry Pi** drives motion; the Python framework talks to it
   over Moonraker and never issues raw moves below a safety clearance plane.
 
-The toolhead is modular by design — the finger is the first tool, not the only
-one the deck can carry.
+The toolhead is modular by design — the finger is the first tool, not the
+only one the deck can carry.
+
+## Hardware
+
+The machine is a published open-hardware design (M0):
+
+- **[docs/01-mechanical.md](docs/01-mechanical.md)** — 2020 frame, CoreXY
+  layout, tool-Z elevator, finger/button tools, device nest; rail-length and
+  tap-force arithmetic.
+- **[docs/02-electronics.md](docs/02-electronics.md)** — BTT SKR Pico
+  (RP2040) + Raspberry Pi, full pin map, power budget, power-cut E-stop.
+- **[docs/03-bom.md](docs/03-bom.md)** — complete BOM, ≈ €420.
+- **[cad/openscad/](cad/openscad/)** — parametric printable parts
+  (`00_config.scad` holds every shared dimension), STLs in `cad/stl/`,
+  previews in `docs/img/` (regenerate with
+  `cad/openscad/render_previews.ps1`).
+- **[firmware/klipper/androidtester.cfg](firmware/klipper/androidtester.cfg)** —
+  the Klipper machine config: CoreXY X/Y, tool-Z as a `manual_stepper`, three
+  servos, and the macro contract below.
+
+Key numbers: 400 × 300 mm deck (= X/Y travel), 60 mm tool-Z, 40 mm clearance
+plane, 1.5–6 N tap force from the finger's spring, X rail 500 mm / Y 2×400 mm
+/ Z 150 mm (travel + carriage + margins — the arithmetic is in the docs and
+checked by `tests/test_design_package.py`).
 
 ## The framework
 
@@ -105,8 +128,14 @@ STEROPES_ROOT=/c/projects/steropes .venv/Scripts/python -m pytest tests/test_twi
 
 ## Roadmap
 
-- **M0 — Machine design package**: parametric OpenSCAD parts, Klipper config,
-  electronics, BOM (generalized gantry design, published as open hardware).
+- **M0 — Machine design package** ✅: parametric OpenSCAD parts
+  (`cad/openscad/`, previews in `docs/img/`), full Klipper config for a BTT
+  SKR Pico rig, electronics and BOM docs (≈ €420). See
+  [Hardware](#hardware). Proof:
+  ```
+  .venv/Scripts/python -m pytest tests/test_design_package.py   # consistency
+  powershell -ExecutionPolicy Bypass -File cad/openscad/render_previews.ps1
+  ```
 - **M1 — Framework** ✅: motion client (Moonraker HTTP + strict `wait_idle`),
   YAML scenario engine with JSON/JUnit reports, vision pipeline (rectification,
   pluggable OCR + template fallback), Klipper macro contract, example device
@@ -136,13 +165,14 @@ STEROPES_ROOT=/c/projects/steropes .venv/Scripts/python -m pytest tests/test_twi
 
 ## Status
 
-M1, M2, and M4 done: the framework (motion client, scenario engine, vision
-pipeline, reports, Klipper macro contract), camera deck registration (ArUco
-homography, synthetic camera, calibration CLI), and twin parity (the
-unmodified framework passing `smoke_wake_unlock` against the steropes
-physics sim over HTTP) are implemented and tested — run them with no
-hardware via the proof commands in the roadmap. The machine design package
-(M0) is next.
+M0, M1, M2, and M4 done: the machine design package (CAD, Klipper config,
+electronics, BOM — see [Hardware](#hardware)), the framework (motion client,
+scenario engine, vision pipeline, reports, Klipper macro contract), camera
+deck registration (ArUco homography, synthetic camera, calibration CLI), and
+twin parity (the unmodified framework passing `smoke_wake_unlock` against the
+steropes physics sim over HTTP) are implemented and tested — run them with no
+hardware via the proof commands in the roadmap. Next: M3 (device nest +
+profiles on real hardware).
 
 ## License
 
