@@ -1,0 +1,24 @@
+# Harness config for running against the Steropes digital twin (M4).
+#
+# Start the twin first (from a steropes checkout):
+#   python -m steropes.server --profile profiles/android_phone_v1.yaml --port 7125
+# then run scenarios exactly as against hardware, e.g.:
+#   DEVICE_PIN_1=1337 python -m androidtester.scenario \
+#       scenarios/smoke_wake_unlock.yaml --config harness.twin.yaml
+moonraker_url: http://127.0.0.1:7125
+
+cameras:
+  # The twin's MJPEG stream — the form cv2.VideoCapture consumes. (The
+  # /camera/overhead.png snapshot endpoint is not a VideoCapture source.)
+  overhead: http://127.0.0.1:7125/camera/overhead
+
+# Deck markers: the defaults HarnessConfig.deck_marker_map() produces
+# (DICT_4X4_50, ids 1-4, one marker-width in from each corner). The twin
+# mirrors these exactly; they are listed here explicitly so this config
+# documents the shared contract.
+deck_markers:
+  1: [20.0, 20.0]
+  2: [280.0, 20.0]
+  3: [280.0, 280.0]
+  4: [20.0, 280.0]
+marker_size_mm: 20.0

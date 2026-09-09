@@ -71,6 +71,38 @@ twin for robotic test hardware — is the development companion: the machine's
 motion, cameras, and device screen are simulated so the framework and vision
 pipeline run before (and without) hardware.
 
+### Run against the Steropes twin
+
+With a steropes checkout on the same machine, the whole framework runs
+against the physics simulation with **zero code changes** — only a config.
+Terminal 1 (from the steropes checkout):
+
+```
+python -m steropes.server --profile profiles/android_phone_v1.yaml --port 7125
+```
+
+Terminal 2 (from this repo):
+
+```
+DEVICE_PIN_1=1337 .venv/Scripts/python -m androidtester.scenario \
+    scenarios/smoke_wake_unlock.yaml --config harness.twin.yaml
+```
+
+(`1337` is the simulated DUT's PIN from the twin's own profile — no real
+secret involved.) This proves the unmodified framework — motion client,
+Klipper macro contract, ArUco deck calibration, and OCR vision checks —
+works against a physically simulated machine over real HTTP: every tap is
+physics, every verification is a real camera frame. `harness.twin.yaml` is
+the stock config with only the Moonraker URL and the overhead camera pointed
+at the twin's MJPEG stream.
+
+The same flow also runs as an env-gated integration test that spawns the
+twin itself on an ephemeral port:
+
+```
+STEROPES_ROOT=/c/projects/steropes .venv/Scripts/python -m pytest tests/test_twin_integration.py
+```
+
 ## Roadmap
 
 - **M0 — Machine design package**: parametric OpenSCAD parts, Klipper config,
@@ -94,15 +126,23 @@ pipeline run before (and without) hardware.
   ```
 - **M3 — Device nest + profiles**: adjustable clamps for phones through tablets,
   side-button pressers, first device YAMLs.
-- **M4 — Twin parity**: steropes models the full machine + device DUT.
+- **M4 — Twin parity** ✅: steropes serves a Moonraker-compatible HTTP API
+  and camera streams in front of the physics sim; the unmodified framework
+  passes `smoke_wake_unlock` against it. Proof: the two-terminal recipe in
+  [Run against the Steropes twin](#run-against-the-steropes-twin) above, or
+  ```
+  STEROPES_ROOT=/c/projects/steropes .venv/Scripts/python -m pytest  # twin integration tests
+  ```
 
 ## Status
 
-M1 + M2 done: the framework (motion client, scenario engine, vision pipeline,
-reports, Klipper macro contract) and camera deck registration (ArUco
-homography, synthetic camera, calibration CLI) are implemented and tested —
-run them with no hardware via the proof commands in the roadmap. The machine
-design package (M0) is next.
+M1, M2, and M4 done: the framework (motion client, scenario engine, vision
+pipeline, reports, Klipper macro contract), camera deck registration (ArUco
+homography, synthetic camera, calibration CLI), and twin parity (the
+unmodified framework passing `smoke_wake_unlock` against the steropes
+physics sim over HTTP) are implemented and tested — run them with no
+hardware via the proof commands in the roadmap. The machine design package
+(M0) is next.
 
 ## License
 
